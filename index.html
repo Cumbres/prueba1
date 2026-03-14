@@ -1,1 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Mando - Cumbres de Quilpué</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Lato', sans-serif; background-color: #f8fafc; }
+        h1, h2, h3 { font-family: 'Poppins', sans-serif; }
+        .task-card { border-left-width: 5px; transition: all 0.3s ease; border-radius: 0.5rem; background: white; margin-bottom: 1rem; }
+        .task-card:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .task-new { border-left-color: #22c55e; } /* Verde */
+        .task-updated { border-left-color: #f59e0b; } /* Naranja */
+        .task-overdue { border-left-color: #ef4444; } /* Rojo */
+        .task-in-progress { border-left-color: #3b82f6; } /* Azul */
+        details summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="antialiased text-gray-900">
 
+    <div class="max-w-7xl mx-auto px-4 py-12">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold uppercase tracking-tight">Panel de Mando Estratégico</h1>
+            <p class="mt-3 text-xl text-gray-500 italic">Cumbres de Quilpué</p>
+            <p id="current-date" class="mt-2 text-sm text-gray-400"></p>
+        </header>
+
+        <div class="mb-8 flex justify-center gap-3">
+            <button onclick="renderizar('all')" class="px-6 py-2 rounded-full text-sm font-bold bg-indigo-600 text-white shadow-md">Todas</button>
+            <button onclick="renderizar('overdue')" class="px-6 py-2 rounded-full text-sm font-bold bg-white text-red-600 border border-red-200 shadow-sm">Atrasadas</button>
+        </div>
+
+        <div id="canvas-tareas" class="space-y-10">
+            <div class="text-center py-20 text-gray-400">Conectando con Google Sheets...</div>
+        </div>
+
+        <footer class="text-center mt-20 border-t pt-8 text-gray-400 text-xs">
+            &copy; 2026 Comité de Administración Cumbres de Quilpué | Sistema Automatizado
+        </footer>
+    </div>
+
+    <script>
+        const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?gid=353601574&single=true&output=csv';
+        let datosLocales = [];
+
+        async function cargarDatos() {
+            Papa.parse(URL_CSV, {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    datosLocales = results.data.filter(f => f.Tarea); // Evita filas vacías
+                    renderizar('all');
+                }
+            });
+            document.getElementById('current-date').textContent = `Estado al: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+        }
+
+        function renderizar(filtro) {
+            const contenedor = document.getElementById('canvas-tareas');
+            contenedor.innerHTML = '';
+
+            // Obtener categorías únicas (Seccion)
+            const secciones = [...new Set(datosLocales.map(t => t.Seccion))];
+
+            secciones.forEach(nombreSec => {
+                const tareasSec = datosLocales.filter(t => t.Seccion === nombreSec);
+                let sectionHTML = `<section>
+                    <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 border-gray-100 pb-2">${nombreSec}</h2>
+                    <div class="grid gap-4">`;
+
+                let tieneTareasVisibles = false;
+
+                tareasSec.forEach(t => {
+                    const diasRestantes = calcularDias(t.Due);
+                    const esAtrasada = diasRestantes < 0 && t.Status !== 'COMPLETADA';
+
+                    if (filtro === 'overdue' && !esAtrasada) return;
+                    tieneTareasVisibles = true;
+
+                    // Lógica de colores basada en Status y Retraso
+                    let colorClase = 'task-in-progress';
+                    if (esAtrasada) colorClase = 'task-overdue';
+                    else if (t.Status === 'NUEVA') colorClase = 'task-new';
+                    else if (t.Status === 'ACTUALIZADO' || t.Status === 'PENDIENTE') colorClase = 'task-updated';
+
+                    sectionHTML += `
+                        <details class="task-card ${colorClase} shadow-sm">
+                            <summary class="p-4 flex justify-between items-center cursor-pointer list-none">
+                                <div class="flex items-center gap-4">
+                                    <span class="font-bold text-gray-700">${t.ID}</span>
+                                    <span class="font-semibold text-gray-800">${t.Tarea}</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600">${t.Status}</span>
+                                    <span class="flex items-center justify-center w-12 h-6 text-xs font-bold rounded-full ${esAtrasada ? 'bg-red-500' : 'bg-green-500'} text-white">
+                                        ${diasRestantes}d
+                                    </span>
+                                </div>
+                            </summary>
+                            <div class="px-4 pb-4 border-t pt-3 bg-gray-50/50 rounded-b-lg">
+                                <p class="text-gray-600 text-sm mb-3">${t.Descripcion}</p>
+                                <div class="flex gap-4 text-[10px] text-gray-400 font-bold uppercase">
+                                    <span>📅 Inicio: ${t.Assigned || 'S/D'}</span>
+                                    <span>🎯 Entrega: ${t.Due || 'S/D'}</span>
+                                </div>
+                            </div>
+                        </details>`;
+                });
+
+                sectionHTML += `</div></section>`;
+                if (tieneTareasVisibles) contenedor.innerHTML += sectionHTML;
+            });
+        }
+
+        function calcularDias(fechaStr) {
+            if (!fechaStr) return 0;
+            // Soporta formato DD.MM.YYYY o DD/MM/YYYY
+            const partes = fechaStr.split(/[\.\/]/).map(Number);
+            const fechaLimite = new Date(partes[2], partes[1] - 1, partes[0]);
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const diff = fechaLimite - hoy;
+            return Math.ceil(diff / (1000 * 60 * 60 * 24));
+        }
+
+        cargarDatos();
+    </script>
+</body>
+</html>
