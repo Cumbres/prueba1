@@ -10,123 +10,152 @@
     <style>
         body { font-family: 'Lato', sans-serif; background-color: #f8fafc; }
         h1, h2, h3 { font-family: 'Poppins', sans-serif; }
-        .task-card { border-left-width: 5px; transition: all 0.3s ease; border-radius: 0.5rem; background: white; margin-bottom: 1rem; }
-        .task-card:hover { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        .task-new { border-left-color: #22c55e; } /* Verde */
-        .task-updated { border-left-color: #f59e0b; } /* Naranja */
-        .task-overdue { border-left-color: #ef4444; } /* Rojo */
-        .task-in-progress { border-left-color: #3b82f6; } /* Azul */
+        .tower-card { transition: all 0.3s ease; border: 1px solid rgba(0,0,0,0.05); }
+        .tower-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .task-card { border-left-width: 5px; border-radius: 0.5rem; background: white; margin-bottom: 0.75rem; border-top: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+        .task-overdue { border-left-color: #ef4444; }
+        .task-in-progress { border-left-color: #3b82f6; }
+        .task-new { border-left-color: #22c55e; }
+        .task-updated { border-left-color: #f59e0b; }
         details summary::-webkit-details-marker { display: none; }
     </style>
 </head>
-<body class="antialiased text-gray-900">
+<body class="antialiased text-gray-900 pb-20">
 
     <div class="max-w-7xl mx-auto px-4 py-12">
         <header class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-bold uppercase tracking-tight">Panel de Mando Estratégico</h1>
-            <p class="mt-3 text-xl text-gray-500 italic">Cumbres de Quilpué</p>
-            <p id="current-date" class="mt-2 text-sm text-gray-400"></p>
+            <h1 class="text-4xl md:text-5xl font-bold uppercase tracking-tight text-slate-800">Panel de Mando Estratégico</h1>
+            <p class="text-indigo-600 font-semibold mt-2 tracking-widest uppercase text-sm">Cumbres de Quilpué</p>
+            <p id="current-date" class="mt-4 text-xs text-slate-400 font-bold"></p>
         </header>
 
-        <div class="mb-8 flex justify-center gap-3">
-            <button onclick="renderizar('all')" class="px-6 py-2 rounded-full text-sm font-bold bg-indigo-600 text-white shadow-md">Todas</button>
-            <button onclick="renderizar('overdue')" class="px-6 py-2 rounded-full text-sm font-bold bg-white text-red-600 border border-red-200 shadow-sm">Atrasadas</button>
+        <section class="mb-16">
+            <h2 class="text-xl font-bold text-center mb-8 uppercase text-slate-700 tracking-tight">Prioridades de Mantenimiento por Torre</h2>
+            <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3 max-w-6xl mx-auto">
+                <div class="col-span-full text-center text-slate-400 text-xs animate-pulse">Cargando estado de torres...</div>
+            </div>
+        </section>
+
+        <div class="mb-8 flex justify-center gap-2">
+            <button onclick="renderTareas('all')" class="bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-slate-700 transition">Todas las Tareas</button>
+            <button onclick="renderTareas('overdue')" class="bg-white text-red-600 border border-red-200 px-6 py-2 rounded-full text-xs font-bold shadow-sm hover:bg-red-50 transition">Ver Atrasadas</button>
         </div>
 
-        <div id="canvas-tareas" class="space-y-10">
-            <div class="text-center py-20 text-gray-400">Conectando con Google Sheets...</div>
-        </div>
-
-        <footer class="text-center mt-20 border-t pt-8 text-gray-400 text-xs">
-            &copy; 2026 Comité de Administración Cumbres de Quilpué | Sistema Automatizado
-        </footer>
+        <div id="canvas-tareas" class="space-y-12">
+            </div>
     </div>
 
     <script>
-        const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?gid=353601574&single=true&output=csv';
-        let datosLocales = [];
+        // CONFIGURACIÓN DE DATA
+        const BASE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?';
+        const GID_TAREAS = '353601574';
+        const GID_TORRES = '1923661378';
 
-        async function cargarDatos() {
-            Papa.parse(URL_CSV, {
-                download: true,
-                header: true,
+        let datosTareas = [];
+        let datosTorres = [];
+
+        async function cargarTodo() {
+            // Cargar Torres
+            Papa.parse(`${BASE_URL}gid=${GID_TORRES}&single=true&output=csv`, {
+                download: true, header: true,
                 complete: function(results) {
-                    datosLocales = results.data.filter(f => f.Tarea); // Evita filas vacías
-                    renderizar('all');
+                    datosTorres = results.data.filter(t => t.Torre);
+                    renderTorres();
                 }
             });
-            document.getElementById('current-date').textContent = `Estado al: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+
+            // Cargar Tareas
+            Papa.parse(`${BASE_URL}gid=${GID_TAREAS}&single=true&output=csv`, {
+                download: true, header: true,
+                complete: function(results) {
+                    datosTareas = results.data.filter(t => t.Tarea);
+                    renderTareas('all');
+                }
+            });
+            
+            document.getElementById('current-date').textContent = `ACTUALIZADO AL: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}`;
         }
 
-        function renderizar(filtro) {
-            const contenedor = document.getElementById('canvas-tareas');
-            contenedor.innerHTML = '';
+        function renderTorres() {
+            const container = document.getElementById('grid-torres');
+            container.innerHTML = '';
+            
+            const temas = {
+                'ROJA': 'bg-red-500 text-white shadow-red-200',
+                'AMARILLA': 'bg-yellow-400 text-slate-800 shadow-yellow-100',
+                'VERDE': 'bg-emerald-500 text-white shadow-emerald-200'
+            };
 
-            // Obtener categorías únicas (Seccion)
-            const secciones = [...new Set(datosLocales.map(t => t.Seccion))];
+            datosTorres.forEach(t => {
+                const colorClase = temas[t.Nivel.toUpperCase()] || 'bg-slate-100 text-slate-400';
+                container.innerHTML += `
+                    <div class="h-24 ${colorClase} tower-card rounded-xl shadow-lg flex flex-col justify-center items-center text-center p-2 border border-white/20">
+                        <h4 class="font-bold text-xl">${t.Torre}</h4>
+                        <span class="text-[9px] font-bold uppercase tracking-tighter opacity-90">${t.Estado}</span>
+                    </div>`;
+            });
+        }
 
-            secciones.forEach(nombreSec => {
-                const tareasSec = datosLocales.filter(t => t.Seccion === nombreSec);
-                let sectionHTML = `<section>
-                    <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b-2 border-gray-100 pb-2">${nombreSec}</h2>
-                    <div class="grid gap-4">`;
+        function renderTareas(filtro) {
+            const container = document.getElementById('canvas-tareas');
+            container.innerHTML = '';
+            
+            const secciones = [...new Set(datosTareas.map(t => t.Seccion))];
 
-                let tieneTareasVisibles = false;
+            secciones.forEach(sec => {
+                const tareas = datosTareas.filter(t => t.Seccion === sec);
+                let html = `<section><h2 class="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-3"><span class="w-8 h-1 bg-indigo-500 rounded-full"></span>${sec}</h2><div class="grid gap-3">`;
+                let visible = false;
 
-                tareasSec.forEach(t => {
-                    const diasRestantes = calcularDias(t.Due);
-                    const esAtrasada = diasRestantes < 0 && t.Status !== 'COMPLETADA';
+                tareas.forEach(t => {
+                    const dias = calcularDias(t.Due);
+                    const atrasada = dias < 0;
+                    if (filtro === 'overdue' && !atrasada) return;
+                    visible = true;
 
-                    if (filtro === 'overdue' && !esAtrasada) return;
-                    tieneTareasVisibles = true;
+                    let c = 'task-in-progress';
+                    if (atrasada) c = 'task-overdue';
+                    else if (t.Status === 'NUEVA') c = 'task-new';
+                    else if (t.Status === 'ACTUALIZADO' || t.Status === 'PENDIENTE') c = 'task-updated';
 
-                    // Lógica de colores basada en Status y Retraso
-                    let colorClase = 'task-in-progress';
-                    if (esAtrasada) colorClase = 'task-overdue';
-                    else if (t.Status === 'NUEVA') colorClase = 'task-new';
-                    else if (t.Status === 'ACTUALIZADO' || t.Status === 'PENDIENTE') colorClase = 'task-updated';
-
-                    sectionHTML += `
-                        <details class="task-card ${colorClase} shadow-sm">
+                    html += `
+                        <details class="task-card ${c} shadow-sm group">
                             <summary class="p-4 flex justify-between items-center cursor-pointer list-none">
                                 <div class="flex items-center gap-4">
-                                    <span class="font-bold text-gray-700">${t.ID}</span>
-                                    <span class="font-semibold text-gray-800">${t.Tarea}</span>
+                                    <span class="text-[10px] font-black text-slate-300 group-open:text-indigo-400 transition-colors">${t.ID}</span>
+                                    <span class="font-bold text-slate-700 text-sm md:text-base">${t.Tarea}</span>
                                 </div>
                                 <div class="flex items-center gap-3">
-                                    <span class="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600">${t.Status}</span>
-                                    <span class="flex items-center justify-center w-12 h-6 text-xs font-bold rounded-full ${esAtrasada ? 'bg-red-500' : 'bg-green-500'} text-white">
-                                        ${diasRestantes}d
+                                    <span class="hidden md:inline text-[9px] font-black px-2 py-1 rounded bg-slate-100 text-slate-500 uppercase">${t.Status}</span>
+                                    <span class="flex items-center justify-center min-w-[45px] h-6 text-[10px] font-black rounded-full ${atrasada ? 'bg-red-500' : 'bg-emerald-500'} text-white px-2">
+                                        ${atrasada ? 'ATRASO ' : '+'}${dias}D
                                     </span>
                                 </div>
                             </summary>
-                            <div class="px-4 pb-4 border-t pt-3 bg-gray-50/50 rounded-b-lg">
-                                <p class="text-gray-600 text-sm mb-3">${t.Descripcion}</p>
-                                <div class="flex gap-4 text-[10px] text-gray-400 font-bold uppercase">
-                                    <span>📅 Inicio: ${t.Assigned || 'S/D'}</span>
-                                    <span>🎯 Entrega: ${t.Due || 'S/D'}</span>
+                            <div class="px-4 pb-5 text-sm text-slate-600 border-t border-slate-50 pt-4 bg-slate-50/50 rounded-b-lg">
+                                <p class="mb-4 leading-relaxed">${t.Descripcion}</p>
+                                <div class="flex flex-wrap gap-4 text-[10px] text-slate-400 font-bold border-t border-slate-100 pt-3">
+                                    <span class="flex items-center gap-1">🗓️ ASIGNADO: ${t.Assigned || '--'}</span>
+                                    <span class="flex items-center gap-1">🏁 LÍMITE: ${t.Due || '--'}</span>
                                 </div>
                             </div>
                         </details>`;
                 });
-
-                sectionHTML += `</div></section>`;
-                if (tieneTareasVisibles) contenedor.innerHTML += sectionHTML;
+                html += `</div></section>`;
+                if (visible) container.innerHTML += html;
             });
         }
 
-        function calcularDias(fechaStr) {
-            if (!fechaStr) return 0;
-            // Soporta formato DD.MM.YYYY o DD/MM/YYYY
-            const partes = fechaStr.split(/[\.\/]/).map(Number);
-            const fechaLimite = new Date(partes[2], partes[1] - 1, partes[0]);
+        function calcularDias(f) {
+            if(!f) return 0;
+            const p = f.split(/[\.\/]/).map(Number);
+            const d = new Date(p[2], p[1]-1, p[0]);
             const hoy = new Date();
-            hoy.setHours(0, 0, 0, 0);
-            const diff = fechaLimite - hoy;
-            return Math.ceil(diff / (1000 * 60 * 60 * 24));
+            hoy.setHours(0,0,0,0);
+            return Math.ceil((d - hoy) / 86400000);
         }
 
-        cargarDatos();
+        cargarTodo();
     </script>
 </body>
 </html>
