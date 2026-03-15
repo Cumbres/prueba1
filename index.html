@@ -1,161 +1,198 @@
 <!DOCTYPE html>
-<html lang="es" class="scroll-smooth">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Mando - Cumbres de Quilpué</title>
+    <title>Panel de Mando Estratégico - Cumbres</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Lato', sans-serif; background-color: #f8fafc; }
-        h1, h2, h3 { font-family: 'Poppins', sans-serif; }
-        .tower-card { transition: all 0.3s ease; border: 1px solid rgba(0,0,0,0.05); }
-        .tower-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        .task-card { border-left-width: 5px; border-radius: 0.5rem; background: white; margin-bottom: 0.75rem; border-top: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+        body { font-family: 'Lato', sans-serif; background-color: #f8fafc; padding-bottom: 100px; }
+        .tower-card { transition: all 0.3s; border: 1px solid rgba(0,0,0,0.1); }
+        .task-card { border-left-width: 6px; background: white; border-radius: 0.75rem; transition: transform 0.2s; }
         .task-overdue { border-left-color: #ef4444; }
         .task-in-progress { border-left-color: #3b82f6; }
         .task-new { border-left-color: #22c55e; }
         .task-updated { border-left-color: #f59e0b; }
-        details summary::-webkit-details-marker { display: none; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
     </style>
 </head>
-<body class="antialiased text-gray-900 pb-20">
+<body>
 
-    <div class="max-w-7xl mx-auto px-4 py-12">
+    <div class="max-w-7xl mx-auto px-4 py-10">
         <header class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-bold uppercase tracking-tight text-slate-800">Panel de Mando Estratégico</h1>
-            <p class="text-indigo-600 font-semibold mt-2 tracking-widest uppercase text-sm">Cumbres de Quilpué</p>
-            <p id="current-date" class="mt-4 text-xs text-slate-400 font-bold"></p>
+            <h1 class="text-4xl font-bold uppercase text-slate-800">Panel de Mando Estratégico</h1>
+            <div class="flex justify-center items-center gap-4 mt-4">
+                <span class="text-indigo-600 font-bold tracking-widest text-sm">CUMBRES DE QUILPUÉ</span>
+                <button onclick="abrirModal()" class="bg-indigo-600 text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-indigo-700">+ NUEVA TAREA</button>
+            </div>
         </header>
 
         <section class="mb-16">
-            <h2 class="text-xl font-bold text-center mb-8 uppercase text-slate-700 tracking-tight">Prioridades de Mantenimiento por Torre</h2>
-            <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3 max-w-6xl mx-auto">
-                <div class="col-span-full text-center text-slate-400 text-xs animate-pulse">Cargando estado de torres...</div>
-            </div>
+            <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3"></div>
         </section>
 
-        <div class="mb-8 flex justify-center gap-2">
-            <button onclick="renderTareas('all')" class="bg-slate-800 text-white px-6 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-slate-700 transition">Todas las Tareas</button>
-            <button onclick="renderTareas('overdue')" class="bg-white text-red-600 border border-red-200 px-6 py-2 rounded-full text-xs font-bold shadow-sm hover:bg-red-50 transition">Ver Atrasadas</button>
-        </div>
+        <div id="canvas-tareas" class="space-y-10"></div>
+    </div>
 
-        <div id="canvas-tareas" class="space-y-12">
+    <div id="modalTarea" class="modal">
+        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg">
+            <h2 id="modalTitulo" class="text-xl font-bold mb-6 text-slate-800">Nueva Tarea</h2>
+            <input type="hidden" id="f-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sección</label>
+                    <select id="f-seccion" class="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 ring-indigo-500">
+                        <option>A. Tareas Prioritarias</option>
+                        <option>B. Trabajos Normales</option>
+                        <option>C. Pendientes ComunidadFeliz</option>
+                        <option>D. Trabajos de Mantención</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tarea</label>
+                    <input id="f-tarea" type="text" class="w-full border p-3 rounded-xl outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Descripción</label>
+                    <textarea id="f-desc" class="w-full border p-3 rounded-xl h-24 outline-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="f-inicio" type="date" class="border p-3 rounded-xl text-sm">
+                    <input id="f-due" type="date" class="border p-3 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Estado</label>
+                    <select id="f-status" class="w-full border p-3 rounded-xl font-bold text-indigo-600 outline-none">
+                        <option value="NUEVA">NUEVA</option>
+                        <option value="EN PROCESO">EN PROCESO</option>
+                        <option value="PENDIENTE">PENDIENTE</option>
+                        <option value="LISTO">✅ FINALIZADA (Mover al Historial)</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button onclick="cerrarModal()" class="flex-1 py-3 font-bold text-slate-400">Cancelar</button>
+                    <button onclick="enviarDatos()" id="btnGuardar" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Guardar Cambios</button>
+                </div>
             </div>
+        </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN DE DATA
-        const BASE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?';
+        // CONFIGURACIÓN - CAMBIA ESTO
+        const URL_APPS_SCRIPT = 'TU_URL_DE_APPS_SCRIPT_AQUI'; 
+        const BASE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?output=csv&';
         const GID_TAREAS = '353601574';
         const GID_TORRES = '1484537224';
 
         let datosTareas = [];
-        let datosTorres = [];
 
-        async function cargarTodo() {
+        async function init() {
             // Cargar Torres
-            Papa.parse(`${BASE_URL}gid=${GID_TORRES}&single=true&output=csv`, {
+            Papa.parse(`${BASE_CSV}gid=${GID_TORRES}`, {
                 download: true, header: true,
-                complete: function(results) {
-                    datosTorres = results.data.filter(t => t.Torre);
-                    renderTorres();
-                }
+                complete: function(r) { renderTorres(r.data); }
             });
-
             // Cargar Tareas
-            Papa.parse(`${BASE_URL}gid=${GID_TAREAS}&single=true&output=csv`, {
+            Papa.parse(`${BASE_CSV}gid=${GID_TAREAS}`, {
                 download: true, header: true,
-                complete: function(results) {
-                    datosTareas = results.data.filter(t => t.Tarea);
+                complete: function(r) { 
+                    datosTareas = r.data.filter(t => t.Tarea);
                     renderTareas('all');
                 }
             });
-            
-            document.getElementById('current-date').textContent = `ACTUALIZADO AL: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}`;
         }
 
-        function renderTorres() {
+        function renderTorres(torres) {
             const container = document.getElementById('grid-torres');
-            container.innerHTML = '';
-            
-            const temas = {
-                'ROJA': 'bg-red-500 text-white shadow-red-200',
-                'AMARILLA': 'bg-yellow-400 text-slate-800 shadow-yellow-100',
-                'VERDE': 'bg-emerald-500 text-white shadow-emerald-200'
-            };
-
-            datosTorres.forEach(t => {
-                const colorClase = temas[t.Nivel.toUpperCase()] || 'bg-slate-100 text-slate-400';
-                container.innerHTML += `
-                    <div class="h-24 ${colorClase} tower-card rounded-xl shadow-lg flex flex-col justify-center items-center text-center p-2 border border-white/20">
-                        <h4 class="font-bold text-xl">${t.Torre}</h4>
-                        <span class="text-[9px] font-bold uppercase tracking-tighter opacity-90">${t.Estado}</span>
-                    </div>`;
-            });
+            const colores = {'ROJA': 'bg-red-500 text-white', 'AMARILLA': 'bg-yellow-400 text-slate-800', 'VERDE': 'bg-emerald-500 text-white'};
+            container.innerHTML = torres.map(t => `
+                <div class="h-24 ${colores[t.Nivel?.toUpperCase()] || 'bg-slate-200'} tower-card rounded-xl shadow-lg flex flex-col justify-center items-center text-center p-2">
+                    <h4 class="font-bold text-lg">${t.Torre}</h4>
+                    <span class="text-[9px] font-bold uppercase opacity-80">${t.Estado || ''}</span>
+                </div>
+            `).join('');
         }
 
         function renderTareas(filtro) {
             const container = document.getElementById('canvas-tareas');
             container.innerHTML = '';
-            
             const secciones = [...new Set(datosTareas.map(t => t.Seccion))];
 
             secciones.forEach(sec => {
                 const tareas = datosTareas.filter(t => t.Seccion === sec);
-                let html = `<section><h2 class="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-3"><span class="w-8 h-1 bg-indigo-500 rounded-full"></span>${sec}</h2><div class="grid gap-3">`;
-                let visible = false;
-
+                let html = `<section><h2 class="text-xl font-bold mb-4 text-slate-800">${sec}</h2><div class="grid gap-3">`;
+                
                 tareas.forEach(t => {
                     const dias = calcularDias(t.Due);
                     const atrasada = dias < 0;
                     if (filtro === 'overdue' && !atrasada) return;
-                    visible = true;
 
                     let c = 'task-in-progress';
                     if (atrasada) c = 'task-overdue';
                     else if (t.Status === 'NUEVA') c = 'task-new';
-                    else if (t.Status === 'ACTUALIZADO' || t.Status === 'PENDIENTE') c = 'task-updated';
 
                     html += `
-                        <details class="task-card ${c} shadow-sm group">
-                            <summary class="p-4 flex justify-between items-center cursor-pointer list-none">
-                                <div class="flex items-center gap-4">
-                                    <span class="text-[10px] font-black text-slate-300 group-open:text-indigo-400 transition-colors">${t.ID}</span>
-                                    <span class="font-bold text-slate-700 text-sm md:text-base">${t.Tarea}</span>
+                        <div class="task-card ${c} p-4 shadow-sm border border-slate-100 flex justify-between items-center group">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-[10px] font-black text-slate-300">${t.ID}</span>
+                                    <h3 class="font-bold text-slate-700">${t.Tarea}</h3>
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="hidden md:inline text-[9px] font-black px-2 py-1 rounded bg-slate-100 text-slate-500 uppercase">${t.Status}</span>
-                                    <span class="flex items-center justify-center min-w-[45px] h-6 text-[10px] font-black rounded-full ${atrasada ? 'bg-red-500' : 'bg-emerald-500'} text-white px-2">
-                                        ${atrasada ? 'ATRASO ' : '+'}${dias}D
-                                    </span>
-                                </div>
-                            </summary>
-                            <div class="px-4 pb-5 text-sm text-slate-600 border-t border-slate-50 pt-4 bg-slate-50/50 rounded-b-lg">
-                                <p class="mb-4 leading-relaxed">${t.Descripcion}</p>
-                                <div class="flex flex-wrap gap-4 text-[10px] text-slate-400 font-bold border-t border-slate-100 pt-3">
-                                    <span class="flex items-center gap-1">🗓️ ASIGNADO: ${t.Assigned || '--'}</span>
-                                    <span class="flex items-center gap-1">🏁 LÍMITE: ${t.Due || '--'}</span>
-                                </div>
+                                <p class="text-xs text-slate-500 line-clamp-1">${t.Descripcion}</p>
                             </div>
-                        </details>`;
+                            <div class="flex items-center gap-4">
+                                <span class="text-[10px] font-bold px-2 py-1 rounded bg-slate-100">${t.Status}</span>
+                                <button onclick='abrirEditar(${JSON.stringify(t)})' class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition">Editar</button>
+                            </div>
+                        </div>`;
                 });
-                html += `</div></section>`;
-                if (visible) container.innerHTML += html;
+                container.innerHTML += html + `</div></section>`;
             });
         }
 
-        function calcularDias(f) {
-            if(!f) return 0;
-            const p = f.split(/[\.\/]/).map(Number);
-            const d = new Date(p[2], p[1]-1, p[0]);
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-            return Math.ceil((d - hoy) / 86400000);
+        function enviarDatos() {
+            const btn = document.getElementById('btnGuardar');
+            btn.innerText = "Guardando...";
+            btn.disabled = true;
+
+            const d = {
+                id: document.getElementById('f-id').value,
+                seccion: document.getElementById('f-seccion').value,
+                tarea: document.getElementById('f-tarea').value,
+                descripcion: document.getElementById('f-desc').value,
+                inicio: document.getElementById('f-inicio').value,
+                due: document.getElementById('f-due').value,
+                status: document.getElementById('f-status').value
+            };
+
+            fetch(URL_APPS_SCRIPT, { method: 'POST', mode: 'no-cors', body: JSON.stringify(d) })
+            .then(() => { 
+                alert("¡Base de datos actualizada!"); 
+                location.reload(); 
+            });
         }
 
-        cargarTodo();
+        function abrirEditar(t) {
+            document.getElementById('modalTitulo').innerText = "Editar " + t.ID;
+            document.getElementById('f-id').value = t.ID;
+            document.getElementById('f-seccion').value = t.Seccion;
+            document.getElementById('f-tarea').value = t.Tarea;
+            document.getElementById('f-desc').value = t.Descripcion;
+            document.getElementById('f-status').value = t.Status;
+            abrirModal();
+        }
+
+        function abrirModal() { document.getElementById('modalTarea').style.display = 'flex'; }
+        function cerrarModal() { document.getElementById('modalTarea').style.display = 'none'; document.getElementById('f-id').value = ''; }
+        function calcularDias(f) { 
+            if(!f) return 0; const p = f.split(/[\.\/]/).map(Number);
+            const d = new Date(p[2], p[1]-1, p[0]);
+            return Math.ceil((d - new Date().setHours(0,0,0,0)) / 86400000);
+        }
+
+        init();
     </script>
 </body>
 </html>
