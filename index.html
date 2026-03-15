@@ -4,84 +4,123 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Mando Estratégico - Cumbres</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
         body { font-family: 'Lato', sans-serif; background-color: #f8fafc; padding-bottom: 100px; }
-        .tower-card { transition: all 0.3s; border: 1px solid rgba(0,0,0,0.1); }
-        .task-card { border-left-width: 6px; background: white; border-radius: 0.75rem; transition: transform 0.2s; }
+        h1, h2, h3 { font-family: 'Poppins', sans-serif; }
+        
+        /* Estilos de Tarjetas */
+        .tower-card { transition: all 0.3s ease; border: 1px solid rgba(0,0,0,0.05); }
+        .tower-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        
+        .task-card { border-left-width: 6px; background: white; border-radius: 0.75rem; border: 1px solid #f1f5f9; border-left-width: 6px; }
         .task-overdue { border-left-color: #ef4444; }
         .task-in-progress { border-left-color: #3b82f6; }
         .task-new { border-left-color: #22c55e; }
         .task-updated { border-left-color: #f59e0b; }
+        
+        /* Modal */
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
+        
+        /* Ocultar flecha de details */
+        details summary::-webkit-details-marker { display: none; }
     </style>
 </head>
-<body>
+<body class="antialiased text-gray-900">
 
     <div class="max-w-7xl mx-auto px-4 py-10">
         <header class="text-center mb-12">
-            <h1 class="text-4xl font-bold uppercase text-slate-800">Panel de Mando Estratégico</h1>
-            <div class="flex justify-center items-center gap-4 mt-4">
-                <span class="text-indigo-600 font-bold tracking-widest text-sm">CUMBRES DE QUILPUÉ</span>
-                <button onclick="abrirModal()" class="bg-indigo-600 text-white px-5 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-indigo-700">+ NUEVA TAREA</button>
+            <h1 class="text-3xl md:text-5xl font-bold uppercase tracking-tight text-slate-800">Panel de Mando Estratégico</h1>
+            <div class="flex flex-col md:flex-row justify-center items-center gap-4 mt-4">
+                <span class="text-indigo-600 font-bold tracking-widest text-sm uppercase">Cumbres de Quilpué</span>
+                <div class="flex gap-2">
+                    <button onclick="abrirModal()" class="bg-indigo-600 text-white px-6 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-indigo-700 transition">+ NUEVA TAREA</button>
+                    <button onclick="copiarReporte()" class="bg-white text-slate-700 border border-slate-200 px-6 py-2 rounded-full text-xs font-bold shadow-sm hover:bg-slate-50 transition">Copiar Reporte</button>
+                </div>
             </div>
+            <p id="current-date" class="mt-6 text-[10px] text-slate-400 font-black uppercase tracking-tighter"></p>
         </header>
 
         <section class="mb-16">
-            <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3"></div>
+            <h2 class="text-sm font-bold text-center mb-6 uppercase text-slate-500 tracking-widest">Prioridades de Mantenimiento por Torre</h2>
+            <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3 max-w-6xl mx-auto">
+                <div class="col-span-full text-center py-10 text-slate-300 animate-pulse">Cargando Torres...</div>
+            </div>
         </section>
 
-        <div id="canvas-tareas" class="space-y-10"></div>
+        <div class="mb-8 flex justify-center gap-2">
+            <button onclick="renderTareas('all')" class="bg-slate-800 text-white px-5 py-2 rounded-full text-[10px] font-bold uppercase">Todas</button>
+            <button onclick="renderTareas('overdue')" class="bg-white text-red-600 border border-red-100 px-5 py-2 rounded-full text-[10px] font-bold uppercase shadow-sm">Atrasadas</button>
+        </div>
+
+        <div id="canvas-tareas" class="space-y-12 max-w-5xl mx-auto">
+            <div class="text-center py-20 text-slate-400 font-bold animate-pulse">CARGANDO TAREAS...</div>
+        </div>
     </div>
 
     <div id="modalTarea" class="modal">
-        <div class="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg">
-            <h2 id="modalTitulo" class="text-xl font-bold mb-6 text-slate-800">Nueva Tarea</h2>
+        <div class="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modalTitulo" class="text-xl font-bold text-slate-800">Gestionar Tarea</h2>
+                <button onclick="cerrarModal()" class="text-slate-400 hover:text-slate-600">&times;</button>
+            </div>
+            
             <input type="hidden" id="f-id">
+            
             <div class="space-y-4">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sección</label>
-                    <select id="f-seccion" class="w-full border p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 ring-indigo-500">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sección de la Tarea</label>
+                    <select id="f-seccion" class="w-full border-2 border-slate-50 p-3 rounded-xl bg-slate-50 outline-none focus:ring-2 ring-indigo-500">
                         <option>A. Tareas Prioritarias</option>
                         <option>B. Trabajos Normales</option>
                         <option>C. Pendientes ComunidadFeliz</option>
                         <option>D. Trabajos de Mantención</option>
+                        <option>E. Equipos No Operativos</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tarea</label>
-                    <input id="f-tarea" type="text" class="w-full border p-3 rounded-xl outline-none">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nombre / Tarea</label>
+                    <input id="f-tarea" type="text" placeholder="Ej: Reparar portón" class="w-full border-2 border-slate-50 p-3 rounded-xl outline-none focus:border-indigo-500">
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Descripción</label>
-                    <textarea id="f-desc" class="w-full border p-3 rounded-xl h-24 outline-none"></textarea>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Descripción Detallada</label>
+                    <textarea id="f-desc" placeholder="Detalles del avance..." class="w-full border-2 border-slate-50 p-3 rounded-xl h-24 outline-none focus:border-indigo-500"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <input id="f-inicio" type="date" class="border p-3 rounded-xl text-sm">
-                    <input id="f-due" type="date" class="border p-3 rounded-xl text-sm">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">F. Inicio</label>
+                        <input id="f-inicio" type="date" class="w-full border-2 border-slate-50 p-3 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">F. Límite</label>
+                        <input id="f-due" type="date" class="w-full border-2 border-slate-50 p-3 rounded-xl text-sm">
+                    </div>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Estado</label>
-                    <select id="f-status" class="w-full border p-3 rounded-xl font-bold text-indigo-600 outline-none">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Estado Actual</label>
+                    <select id="f-status" class="w-full border-2 border-indigo-50 p-3 rounded-xl font-bold text-indigo-600 outline-none">
                         <option value="NUEVA">NUEVA</option>
                         <option value="EN PROCESO">EN PROCESO</option>
                         <option value="PENDIENTE">PENDIENTE</option>
-                        <option value="LISTO">✅ FINALIZADA (Mover al Historial)</option>
+                        <option value="ACTUALIZADO">ACTUALIZADO</option>
+                        <option value="LISTO">✅ FINALIZADA (Enviar a Historial)</option>
                     </select>
                 </div>
                 <div class="flex gap-3 pt-4">
                     <button onclick="cerrarModal()" class="flex-1 py-3 font-bold text-slate-400">Cancelar</button>
-                    <button onclick="enviarDatos()" id="btnGuardar" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Guardar Cambios</button>
+                    <button onclick="enviarDatos()" id="btnGuardar" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Guardar Cambios</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN - CAMBIA ESTO
-        const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbz8gcbadLgIcriZ5RHkA5S0aiwMOMDgTHjUXAfNi73wesWTOrcGfvnHajdX60GbZm8X/exec'; 
+        // --- CONFIGURACIÓN (Asegúrate de que estos datos sean correctos) ---
+        const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbzpppy-hhyNzYVC-y-7P2aBtS3ntYRWoCSrz0xS-MkDLaY6bmDz3VGpA6WTaYA7MlyP/exec'; 
         const BASE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?output=csv&';
         const GID_TAREAS = '353601574';
         const GID_TORRES = '1484537224';
@@ -102,14 +141,19 @@
                     renderTareas('all');
                 }
             });
+            document.getElementById('current-date').innerText = `Actualizado el: ${new Date().toLocaleDateString('es-CL')}`;
         }
 
         function renderTorres(torres) {
             const container = document.getElementById('grid-torres');
-            const colores = {'ROJA': 'bg-red-500 text-white', 'AMARILLA': 'bg-yellow-400 text-slate-800', 'VERDE': 'bg-emerald-500 text-white'};
+            const temas = {
+                'ROJA': 'bg-red-500 text-white shadow-red-100',
+                'AMARILLA': 'bg-yellow-400 text-slate-800 shadow-yellow-100',
+                'VERDE': 'bg-emerald-500 text-white shadow-emerald-100'
+            };
             container.innerHTML = torres.map(t => `
-                <div class="h-24 ${colores[t.Nivel?.toUpperCase()] || 'bg-slate-200'} tower-card rounded-xl shadow-lg flex flex-col justify-center items-center text-center p-2">
-                    <h4 class="font-bold text-lg">${t.Torre}</h4>
+                <div class="h-24 ${temas[t.Nivel?.toUpperCase()] || 'bg-slate-200'} tower-card rounded-xl shadow-lg flex flex-col justify-center items-center text-center p-2">
+                    <h4 class="font-bold text-xl">${t.Torre}</h4>
                     <span class="text-[9px] font-bold uppercase opacity-80">${t.Estado || ''}</span>
                 </div>
             `).join('');
@@ -118,44 +162,49 @@
         function renderTareas(filtro) {
             const container = document.getElementById('canvas-tareas');
             container.innerHTML = '';
-            const secciones = [...new Set(datosTareas.map(t => t.Seccion))];
+            const secciones = [...new Set(datosTareas.map(t => t.Seccion).filter(s => s))];
 
             secciones.forEach(sec => {
                 const tareas = datosTareas.filter(t => t.Seccion === sec);
-                let html = `<section><h2 class="text-xl font-bold mb-4 text-slate-800">${sec}</h2><div class="grid gap-3">`;
-                
+                let html = `<section><h2 class="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2"><span class="w-2 h-6 bg-indigo-600 rounded-full"></span>${sec}</h2><div class="grid gap-3">`;
+                let visible = false;
+
                 tareas.forEach(t => {
                     const dias = calcularDias(t.Due);
                     const atrasada = dias < 0;
                     if (filtro === 'overdue' && !atrasada) return;
+                    visible = true;
 
                     let c = 'task-in-progress';
                     if (atrasada) c = 'task-overdue';
                     else if (t.Status === 'NUEVA') c = 'task-new';
+                    else if (t.Status === 'ACTUALIZADO') c = 'task-updated';
 
                     html += `
-                        <div class="task-card ${c} p-4 shadow-sm border border-slate-100 flex justify-between items-center group">
+                        <div class="task-card ${c} p-4 shadow-sm flex justify-between items-center group">
                             <div class="flex-1">
                                 <div class="flex items-center gap-3 mb-1">
                                     <span class="text-[10px] font-black text-slate-300">${t.ID}</span>
-                                    <h3 class="font-bold text-slate-700">${t.Tarea}</h3>
+                                    <h3 class="font-bold text-slate-700 leading-tight">${t.Tarea}</h3>
                                 </div>
                                 <p class="text-xs text-slate-500 line-clamp-1">${t.Descripcion}</p>
                             </div>
-                            <div class="flex items-center gap-4">
-                                <span class="text-[10px] font-bold px-2 py-1 rounded bg-slate-100">${t.Status}</span>
-                                <button onclick='abrirEditar(${JSON.stringify(t)})' class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition">Editar</button>
+                            <div class="flex items-center gap-3 ml-4">
+                                <span class="hidden md:inline text-[9px] font-black px-2 py-1 rounded bg-slate-100 text-slate-500">${t.Status}</span>
+                                <div class="w-12 text-center text-[10px] font-bold ${atrasada ? 'text-red-500' : 'text-emerald-500'}">
+                                    ${atrasada ? 'Atraso' : 'Faltan'}<br>${Math.abs(dias)}d
+                                </div>
+                                <button onclick='abrirEditar(${JSON.stringify(t)})' class="bg-indigo-50 text-indigo-600 p-2 px-4 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition">Editar</button>
                             </div>
                         </div>`;
                 });
-                container.innerHTML += html + `</div></section>`;
+                if (visible) container.innerHTML += html + `</div></section>`;
             });
         }
 
         function enviarDatos() {
             const btn = document.getElementById('btnGuardar');
-            btn.innerText = "Guardando...";
-            btn.disabled = true;
+            btn.innerText = "Guardando..."; btn.disabled = true;
 
             const d = {
                 id: document.getElementById('f-id').value,
@@ -169,9 +218,21 @@
 
             fetch(URL_APPS_SCRIPT, { method: 'POST', mode: 'no-cors', body: JSON.stringify(d) })
             .then(() => { 
-                alert("¡Base de datos actualizada!"); 
+                alert("¡Base de datos actualizada! La web reflejará los cambios en breve."); 
                 location.reload(); 
+            }).catch(err => {
+                alert("Error de conexión");
+                btn.innerText = "Guardar Cambios"; btn.disabled = false;
             });
+        }
+
+        function copiarReporte() {
+            let texto = `📋 REPORTE DE TAREAS - CUMBRES DE QUILPUÉ\nFecha: ${new Date().toLocaleDateString()}\n\n`;
+            datosTareas.forEach(t => {
+                const dias = calcularDias(t.Due);
+                texto += `🔹 [${t.ID}] ${t.Tarea}\n   Estado: ${t.Status} (${dias < 0 ? 'ATRASADA '+dias : dias+'d restantes'})\n   Detalle: ${t.Descripcion}\n\n`;
+            });
+            navigator.clipboard.writeText(texto).then(() => alert("Reporte copiado para WhatsApp/Correo"));
         }
 
         function abrirEditar(t) {
@@ -180,12 +241,22 @@
             document.getElementById('f-seccion').value = t.Seccion;
             document.getElementById('f-tarea').value = t.Tarea;
             document.getElementById('f-desc').value = t.Descripcion;
+            document.getElementById('f-inicio').value = formatFecha(t.Inicio);
+            document.getElementById('f-due').value = formatFecha(t.Due);
             document.getElementById('f-status').value = t.Status;
             abrirModal();
         }
 
+        function formatFecha(f) {
+            if(!f) return "";
+            const p = f.split(/[\.\/]/);
+            if(p.length < 3) return "";
+            return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        }
+
         function abrirModal() { document.getElementById('modalTarea').style.display = 'flex'; }
         function cerrarModal() { document.getElementById('modalTarea').style.display = 'none'; document.getElementById('f-id').value = ''; }
+        
         function calcularDias(f) { 
             if(!f) return 0; const p = f.split(/[\.\/]/).map(Number);
             const d = new Date(p[2], p[1]-1, p[0]);
