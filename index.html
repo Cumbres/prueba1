@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Mando Estratégico - Cumbres</title>
+    <title>Cumbres Ops - Panel de Mando</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
@@ -36,11 +36,11 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6 text-center md:text-left">
             <div>
                 <h1 class="text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-slate-800">Cumbres <span class="text-indigo-600">Ops</span></h1>
-                <p class="text-[10px] font-bold uppercase tracking-widest mt-1 text-slate-400" id="current-date">Sincronizando...</p>
+                <p class="text-[10px] font-bold uppercase tracking-widest mt-1 text-slate-400" id="current-date">Sincronizando base de datos...</p>
             </div>
             <div class="flex gap-2">
                 <button onclick="copiarReporte()" class="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-full text-xs font-bold shadow-sm hover:bg-slate-50 transition">📋 WHATSAPP</button>
-                <button onclick="abrirModal()" class="bg-indigo-600 text-white px-8 py-3 rounded-full text-xs font-bold shadow-lg hover:bg-indigo-700 transition">+ NUEVA TAREA</button>
+                <button onclick="abrirNueva()" class="bg-indigo-600 text-white px-8 py-3 rounded-full text-xs font-bold shadow-lg hover:bg-indigo-700 transition">+ NUEVA TAREA</button>
             </div>
         </header>
 
@@ -112,29 +112,27 @@
 
             <div class="flex gap-3 mt-8">
                 <button onclick="cerrarModal()" class="flex-1 py-3 font-bold text-slate-400">Cancelar</button>
-                <button onclick="enviarDatos()" id="btnGuardar" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Guardar</button>
+                <button onclick="enviarDatos()" id="btnGuardar" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Guardar Cambios</button>
             </div>
         </div>
     </div>
 
     <script>
-        // === CONFIGURACIÓN ===
-        // Reemplaza esto con tu URL de Apps Script (Nueva Implementación)
+        // === CONFIGURACIÓN DE CONEXIÓN ===
         const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycby5qY-ISfM1zu8g1QDe7z6lafEWtzeiOwRQEG3wb_hFdJ5fq4PrEIQ9cqSWrMYp5Kkv/exec'; 
-        
-        // CSV de lectura (Asegúrate de que no haya cambiado)
         const BASE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?output=csv&';
         const GID_TAREAS = '353601574';
         const GID_TORRES = '1484537224';
 
         let datosTareas = [];
 
-        async function init() {
+        function init() {
+            // Cargar Torres
             Papa.parse(`${BASE_CSV}gid=${GID_TORRES}`, {
                 download: true, header: true,
                 complete: function(r) { renderTorres(r.data); }
             });
-            
+            // Cargar Tareas
             Papa.parse(`${BASE_CSV}gid=${GID_TAREAS}`, {
                 download: true, header: true,
                 complete: function(r) { 
@@ -203,7 +201,7 @@
                             </div>
                             <div class="flex items-center gap-3 ml-4">
                                 <span class="hidden md:inline text-[9px] font-extrabold px-3 py-1 rounded-full uppercase bg-indigo-50 text-indigo-600">${t.Status}</span>
-                                <button onclick='abrirEditar(${JSON.stringify(t)})' class="p-2 text-slate-300 hover:text-indigo-600 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
+                                <button onclick='abrirEditar(${JSON.stringify(t).replace(/'/g, "&#39;")})' class="p-2 text-slate-300 hover:text-indigo-600 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
                             </div>
                         </div>`;
                 });
@@ -226,7 +224,7 @@
                             </div>
                             <p class="text-[10px] text-slate-400 mt-1">${t.Seccion}</p>
                         </div>
-                        <button onclick='abrirEditar(${JSON.stringify(t)})' class="text-[10px] font-bold text-indigo-500">Reabrir</button>
+                        <button onclick='abrirEditar(${JSON.stringify(t).replace(/'/g, "&#39;")})' class="text-[10px] font-bold text-indigo-500 px-3 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 transition">Reabrir</button>
                     </div>`;
                 });
             }
@@ -246,15 +244,22 @@
                 status: document.getElementById('f-status').value
             };
 
-            // Envio silencioso (no-cors). Supera las barreras de GitHub.
-            fetch(URL_APPS_SCRIPT, { method: 'POST', mode: 'no-cors', body: JSON.stringify(d) })
+            // URLSearchParams previene problemas de CORS en envíos a Google Apps Script
+            const formData = new URLSearchParams();
+            formData.append('data', JSON.stringify(d));
+
+            fetch(URL_APPS_SCRIPT, { 
+                method: 'POST', 
+                body: formData 
+            })
             .then(() => { 
                 cerrarModal();
-                alert("Guardado. Los cambios se reflejarán en breve debido a la sincronización de Google."); 
+                alert("✅ Operación enviada. Los cambios aparecerán aquí tras la actualización de Google (1-3 min)."); 
                 location.reload(); 
-            }).catch(err => {
-                alert("Error de conexión");
-                btn.innerText = "Guardar"; btn.disabled = false;
+            })
+            .catch(err => {
+                alert("Error de conexión al enviar los datos.");
+                btn.innerText = "Guardar Cambios"; btn.disabled = false;
             });
         }
 
@@ -306,7 +311,7 @@
             return Math.ceil((d - new Date().setHours(0,0,0,0)) / 86400000);
         }
 
-        init();
+        window.onload = init;
     </script>
 </body>
 </html>
