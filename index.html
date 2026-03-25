@@ -102,7 +102,6 @@
     </div>
 
     <script>
-        // === PEGA AQUÍ TU ENLACE DE GOOGLE APPS SCRIPT ===
         const API_URL = 'https://script.google.com/macros/s/AKfycby5qY-ISfM1zu8g1QDe7z6lafEWtzeiOwRQEG3wb_hFdJ5fq4PrEIQ9cqSWrMYp5Kkv/exec';
         
         let datosGlobales = [];
@@ -257,7 +256,7 @@
 
             fetch(API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CRÍTICO PARA GITHUB
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(d)
             })
             .then(res => res.json())
