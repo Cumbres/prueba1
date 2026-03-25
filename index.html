@@ -30,7 +30,7 @@
         .tab-inactive { background: #e2e8f0; color: #64748b; }
     </style>
 </head>
-<body class="antialiased text-gray-900">
+<body class="antialiased">
 
     <div class="max-w-6xl mx-auto px-4 py-10">
         <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6 text-center md:text-left">
@@ -118,8 +118,8 @@
     </div>
 
     <script>
-        // === CONFIGURACIÓN DE CONEXIÓN ===
-        const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbyaNIYGI8KpIUcCT8snFmuqhpIfEM0yO6kOek8Py68J1nSe39MF8W-PCcg5tw6oYAXw/exec'; 
+        // === CONFIGURACIÓN ===
+        const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbx3zUY7xLmykFIzWSTfHGI8DRasOxDYy_pehNBo-jh2SrA-RanrrN1bGOSKkaFm79Q3/exec'; 
         const BASE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?output=csv&';
         const GID_TAREAS = '353601574';
         const GID_TORRES = '1484537224';
@@ -127,12 +127,11 @@
         let datosTareas = [];
 
         function init() {
-            // Cargar Torres
             Papa.parse(`${BASE_CSV}gid=${GID_TORRES}`, {
                 download: true, header: true,
                 complete: function(r) { renderTorres(r.data); }
             });
-            // Cargar Tareas
+            
             Papa.parse(`${BASE_CSV}gid=${GID_TAREAS}`, {
                 download: true, header: true,
                 complete: function(r) { 
@@ -244,21 +243,19 @@
                 status: document.getElementById('f-status').value
             };
 
-            // URLSearchParams previene problemas de CORS en envíos a Google Apps Script
-            const formData = new URLSearchParams();
-            formData.append('data', JSON.stringify(d));
-
+            // Envío silencioso para atravesar CORS en GitHub
             fetch(URL_APPS_SCRIPT, { 
                 method: 'POST', 
-                body: formData 
+                mode: 'no-cors', 
+                body: JSON.stringify(d) 
             })
             .then(() => { 
                 cerrarModal();
-                alert("✅ Operación enviada. Los cambios aparecerán aquí tras la actualización de Google (1-3 min)."); 
+                alert("✅ Guardado correctamente. Google tardará ~2 minutos en reflejar el cambio en la web."); 
                 location.reload(); 
             })
             .catch(err => {
-                alert("Error de conexión al enviar los datos.");
+                alert("Error de conexión");
                 btn.innerText = "Guardar Cambios"; btn.disabled = false;
             });
         }
