@@ -11,7 +11,7 @@
         .task-card { background: white; border-radius: 1rem; border-left: 6px solid #6366f1; transition: all 0.2s; }
         .task-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
         .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
-        .tab-btn { padding: 0.75rem 1.5rem; font-weight: 700; font-size: 0.875rem; border-radius: 0.75rem; transition: all 0.2s; }
+        .tab-btn { padding: 0.75rem 1.5rem; font-weight: 700; font-size: 0.875rem; border-radius: 0.75rem; transition: all 0.2s; cursor: pointer; border: none; }
         .tab-active { background: #4f46e5; color: white; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3); }
         .tab-inactive { background: #e2e8f0; color: #64748b; }
         .tab-inactive:hover { background: #cbd5e1; }
@@ -27,7 +27,7 @@
             </div>
             <div class="flex gap-3">
                 <button onclick="copiarReporte()" class="bg-white text-slate-700 px-6 py-3 rounded-full font-bold shadow-sm border border-slate-200 text-xs hover:bg-slate-50 transition">📋 COPIAR REPORTE</button>
-                <button onclick="abrirNueva()" class="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-indigo-700 transition transform hover:scale-105">+ NUEVA TAREA</button>
+                <button onclick="abrirNueva()" class="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-indigo-700 transition">+ NUEVA TAREA</button>
             </div>
         </header>
 
@@ -38,15 +38,14 @@
 
         <div id="tab-activas">
             <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3 mb-12"></div>
-            <div id="contenedor-activas" class="space-y-8"></div>
+            <div id="contenedor-activas" class="space-y-8">
+                <p class="text-center text-slate-400 py-10 font-bold animate-pulse tracking-widest uppercase">CONECTANDO A BASE DE DATOS...</p>
+            </div>
         </div>
 
         <div id="tab-historial" style="display: none;">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <h2 class="font-p text-lg font-extrabold mb-6 text-emerald-600 flex items-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Tareas Completadas
-                </h2>
+                <h2 class="font-p text-lg font-extrabold mb-6 text-emerald-600 flex items-center gap-2">✅ Tareas Completadas</h2>
                 <div id="contenedor-finalizadas" class="space-y-3"></div>
             </div>
         </div>
@@ -96,17 +95,30 @@
             </div>
 
             <div class="flex gap-3 mt-8">
-                <button onclick="cerrar()" class="flex-1 font-bold text-slate-400">Cerrar</button>
-                <button onclick="guardar()" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg">Guardar</button>
+                <button onclick="cerrar()" class="flex-1 font-bold text-slate-400" id="btn-cancelar">Cerrar</button>
+                <button onclick="guardar()" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg" id="btn-guardar">Guardar</button>
             </div>
         </div>
     </div>
 
     <script>
+        // === PEGA AQUÍ TU ENLACE DE GOOGLE APPS SCRIPT ===
+        const API_URL = 'https://script.google.com/macros/s/TU_NUEVO_ENLACE_AQUI/exec';
+        
         let datosGlobales = [];
 
         function cargar() {
-            google.script.run.withSuccessHandler(render).getDatosTablas();
+            document.getElementById('contenedor-activas').innerHTML = '<p class="text-center text-slate-400 py-10 font-bold animate-pulse tracking-widest uppercase">SINCRONIZANDO...</p>';
+            
+            fetch(API_URL)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.error) throw new Error(data.error);
+                    render(data);
+                })
+                .catch(err => {
+                    document.getElementById('contenedor-activas').innerHTML = `<p class="text-center text-red-500 py-10 font-bold">Error de conexión: ${err.message}</p>`;
+                });
         }
 
         function cambiarTab(tab) {
@@ -120,7 +132,6 @@
             datosGlobales = res.tareas;
             const coloresTorres = { 'ROJA': 'bg-red-500 text-white', 'AMARILLA': 'bg-yellow-400 text-slate-800', 'VERDE': 'bg-emerald-500 text-white' };
             
-            // Dibujar Torres
             document.getElementById('grid-torres').innerHTML = res.torres.slice(1).map(f => `
                 <div class="h-20 ${coloresTorres[(f[2]||"").toUpperCase().trim()] || 'bg-slate-200'} tower-card flex flex-col items-center justify-center p-2 shadow-sm">
                     <span class="font-extrabold text-xl">${f[0]}</span>
@@ -128,12 +139,11 @@
                 </div>
             `).join('');
 
-            // Agrupar Tareas
             const categorias = {};
             const finalizadas = [];
 
             res.tareas.slice(1).forEach(f => {
-                if (!f[0]) return; // Ignorar filas vacías
+                if (!f[0]) return;
                 if (f[6] === "LISTO") {
                     finalizadas.push(f);
                 } else {
@@ -143,7 +153,6 @@
                 }
             });
 
-            // Dibujar Activas (Dinámico por categoría)
             let htmlActivas = '';
             for (const [cat, tareas] of Object.entries(categorias)) {
                 htmlActivas += `
@@ -158,7 +167,6 @@
             }
             document.getElementById('contenedor-activas').innerHTML = htmlActivas || '<p class="text-center text-slate-400 py-10">No hay tareas activas.</p>';
 
-            // Dibujar Finalizadas
             document.getElementById('contenedor-finalizadas').innerHTML = finalizadas.length > 0 
                 ? finalizadas.map(f => generarTarjeta(f, true)).join('') 
                 : '<p class="text-center text-slate-400 py-10">Aún no hay tareas finalizadas.</p>';
@@ -193,10 +201,13 @@
 
         function formatearFecha(f) {
             if(!f) return '--';
-            // Adaptar para que se vea legible si viene de input date (yyyy-mm-dd) o del excel
-            if(f.includes('-')) {
-                const p = f.split('-'); return `${p[2]}/${p[1]}/${p[0]}`;
-            }
+            if(f.includes('-')) { const p = f.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+            return f;
+        }
+
+        function formatearParaInput(f) {
+            if(!f) return '';
+            if(f.includes('/')) { const p = f.split('/'); return `${p[2]}-${p[1]}-${p[0]}`; }
             return f;
         }
 
@@ -206,15 +217,6 @@
                 if(f[6] !== "LISTO" && f[0]) t += `🔹 *[${f[0]}] ${f[2]}*\n   Status: ${f[6]} | Due: ${formatearFecha(f[5])}\n\n`;
             });
             navigator.clipboard.writeText(t).then(() => alert("Reporte copiado para WhatsApp."));
-        }
-
-        function formatearParaInput(f) {
-            if(!f) return '';
-            // Si viene del excel como dd/mm/yyyy lo pasamos a yyyy-mm-dd para el input date
-            if(f.includes('/')) {
-                const p = f.split('/'); return `${p[2]}-${p[1]}-${p[0]}`;
-            }
-            return f;
         }
 
         function abrirNueva() { 
@@ -240,6 +242,9 @@
         function cerrar() { document.getElementById('modalTarea').style.display = 'none'; }
         
         function guardar() {
+            const btn = document.getElementById('btn-guardar');
+            btn.innerText = "Guardando..."; btn.disabled = true;
+
             const d = {
                 id: document.getElementById('f-id').value,
                 seccion: document.getElementById('f-seccion').value,
@@ -249,7 +254,22 @@
                 due: document.getElementById('f-due').value,
                 status: document.getElementById('f-status').value
             };
-            google.script.run.withSuccessHandler(() => { cerrar(); cargar(); }).guardarTareaWeb(d);
+
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CRÍTICO PARA GITHUB
+                body: JSON.stringify(d)
+            })
+            .then(res => res.json())
+            .then(data => {
+                cerrar();
+                cargar();
+                btn.innerText = "Guardar"; btn.disabled = false;
+            })
+            .catch(err => {
+                alert("Error de guardado: Verifica tu conexión.");
+                btn.innerText = "Guardar"; btn.disabled = false;
+            });
         }
         
         window.onload = cargar;
