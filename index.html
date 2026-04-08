@@ -2,313 +2,291 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cumbres Ops - Panel de Mando</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Cumbres Pro | Sistema Operativo</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f4f7fa; padding-bottom: 100px; color: #1e293b; }
-        h1, h2, h3, .font-p { font-family: 'Poppins', sans-serif; }
-        
-        .tower-card { transition: all 0.3s ease; border: 1px solid rgba(0,0,0,0.05); border-radius: 1.25rem; }
-        .tower-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        
-        .task-card { border-left-width: 6px; background: white; border-radius: 1rem; border: 1px solid #f1f5f9; transition: all 0.2s; }
-        .task-card:hover { transform: translateX(3px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .task-overdue { border-left-color: #ef4444; }
-        .task-in-progress { border-left-color: #6366f1; }
-        .task-new { border-left-color: #10b981; }
-        .task-completed { border-left-color: #cbd5e1; opacity: 0.7; }
-        
-        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
-        
-        .tab-btn { padding: 0.75rem 1.5rem; font-weight: 700; font-size: 0.875rem; border-radius: 0.75rem; transition: all 0.2s; }
-        .tab-active { background: #4f46e5; color: white; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3); }
-        .tab-inactive { background: #e2e8f0; color: #64748b; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; overflow-x: hidden; min-height: 100vh; }
+        body.modal-open { overflow: hidden; position: fixed; width: 100%; }
+        .task-card { background: white; border-radius: 1.5rem; border-left: 8px solid #cbd5e1; transition: 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .status-nueva { border-left-color: #10b981; }
+        .status-enproceso { border-left-color: #6366f1; }
+        .status-pendiente { border-left-color: #f59e0b; }
+        .progress-ring__circle { transition: stroke-dashoffset 0.35s; transform: rotate(-90deg); transform-origin: 50% 50%; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(12px); padding: 1rem; overflow-y: auto; }
+        .input-field { width: 100%; background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 0.85rem; padding: 0.8rem 1rem; font-weight: 500; outline: none; font-size: 16px !important; }
+        #toast { visibility: hidden; min-width: 280px; background: #0f172a; color: white; text-align: center; border-radius: 1.25rem; padding: 1.25rem; position: fixed; left: 50%; bottom: 2rem; transform: translateX(-50%); z-index: 999; font-weight: 600; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        #toast.show { visibility: visible; animation: slideUp 0.5s forwards, slideDown 0.5s 2.5s forwards; }
+        @keyframes slideUp { from { bottom: -5rem; opacity: 0; } to { bottom: 2rem; opacity: 1; } }
+        @keyframes slideDown { from { bottom: 2rem; opacity: 1; } to { bottom: -5rem; opacity: 0; } }
+        #loader { position: fixed; inset: 0; background: white; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.5s; }
+        details summary::-webkit-details-marker { display: none; }
     </style>
 </head>
-<body class="antialiased">
+<body class="p-4 md:p-8 antialiased">
 
-    <div class="max-w-6xl mx-auto px-4 py-10">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-6 text-center md:text-left">
+    <div id="loader">
+        <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Sincronizando Sistema...</p>
+    </div>
+
+    <div id="toast">Operación Exitosa</div>
+
+    <div class="max-w-5xl mx-auto">
+        <header class="flex justify-between items-start mb-8">
             <div>
-                <h1 class="text-3xl md:text-4xl font-extrabold uppercase tracking-tight text-slate-800">Cumbres <span class="text-indigo-600">Ops</span></h1>
-                <p class="text-[10px] font-bold uppercase tracking-widest mt-1 text-slate-400" id="current-date">Sincronizando base de datos...</p>
+                <h1 class="text-4xl font-black italic tracking-tighter text-slate-900 leading-none">CUMBRES <span class="text-indigo-600">PRO</span></h1>
+                <p id="sync-status" class="text-[10px] font-bold text-slate-400 uppercase mt-2 italic">Dashboard Operativo</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="copiarReporte()" class="bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-full text-xs font-bold shadow-sm hover:bg-slate-50 transition">📋 WHATSAPP</button>
-                <button onclick="abrirNueva()" class="bg-indigo-600 text-white px-8 py-3 rounded-full text-xs font-bold shadow-lg hover:bg-indigo-700 transition">+ NUEVA TAREA</button>
+                <button onclick="copiarReporte()" class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 active:scale-95 transition-all"><svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" stroke-width="2"></path></svg></button>
+                <button onclick="abrirNueva()" class="bg-indigo-600 text-white px-5 py-3 rounded-2xl font-black text-xs shadow-lg active:scale-95 transition-all">NUEVA TAREA</button>
             </div>
         </header>
 
-        <div class="flex gap-3 mb-8 justify-center md:justify-start">
-            <button id="btn-activas" onclick="cambiarTab('activas')" class="tab-btn tab-active">⚡ Operaciones Activas</button>
-            <button id="btn-historial" onclick="cambiarTab('historial')" class="tab-btn tab-inactive">✅ Historial Finalizadas</button>
-        </div>
-
-        <div id="tab-activas">
-            <section class="mb-12">
-                <div id="grid-torres" class="grid grid-cols-3 md:grid-cols-9 gap-3">
-                    <div class="col-span-full text-center py-10 text-slate-300 animate-pulse font-bold">Cargando Torres...</div>
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-[2.5rem] shadow-sm flex items-center justify-between border border-slate-100">
+                <div><h3 class="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-1">Cumplimiento</h3><p id="txt-porcentaje" class="text-4xl font-black text-slate-900">0%</p></div>
+                <div class="relative flex items-center justify-center">
+                    <svg class="w-20 h-20"><circle class="text-slate-100" stroke-width="6" stroke="currentColor" fill="transparent" r="35" cx="40" cy="40"/><circle id="anillo-progreso" class="text-indigo-600 progress-ring__circle" stroke-width="6" stroke-dasharray="219.9" stroke-dashoffset="219.9" stroke-linecap="round" stroke="currentColor" fill="transparent" r="35" cx="40" cy="40"/></svg>
                 </div>
-            </section>
-            <section id="canvas-tareas" class="space-y-8">
-                <div class="text-center py-20 text-slate-400 font-bold animate-pulse">CARGANDO TAREAS...</div>
-            </section>
-        </div>
+            </div>
+            <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 lg:col-span-2 shadow-sm">
+                <h3 class="text-slate-400 font-bold text-[10px] uppercase tracking-widest mb-3">Salud Operativa</h3>
+                <div class="flex h-8 w-full rounded-xl overflow-hidden mb-3 border-2 border-slate-50">
+                    <div id="bar-atraso" class="bg-red-500 h-full transition-all" style="width: 0%"></div>
+                    <div id="bar-proceso" class="bg-indigo-500 h-full transition-all" style="width: 0%"></div>
+                    <div id="bar-listo" class="bg-emerald-500 h-full transition-all" style="width: 0%"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-[9px] font-black uppercase text-slate-500"><p id="txt-atraso">Atraso: 0</p><p id="txt-proceso" class="text-center">Activas: 0</p><p id="txt-listo" class="text-right">Listas: 0</p></div>
+            </div>
+        </section>
 
-        <div id="tab-historial" style="display: none;">
-            <section id="canvas-historial" class="space-y-3 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                </section>
-        </div>
+        <section id="grid-torres" class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-3 mb-10"></section>
+
+        <details class="group bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm mb-12">
+            <summary class="flex justify-between items-center p-6 cursor-pointer bg-slate-50">
+                <h3 class="text-slate-800 font-bold text-xs uppercase flex items-center gap-2"><svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"></path></svg> Monitor Crítico</h3>
+                <span class="group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-100 bg-white">
+                <div><h4 class="text-[10px] font-black text-red-500 uppercase mb-4 tracking-widest">Top 5 Atrasadas</h4><div id="top-atrasadas" class="space-y-3"></div></div>
+                <div><h4 class="text-[10px] font-black text-indigo-500 uppercase mb-4 tracking-widest">Próximos Límites</h4><div id="top-proximas" class="space-y-3"></div></div>
+            </div>
+        </details>
+
+        <section id="contenedor-tareas" class="space-y-12 mb-20"></section>
+
+        <footer class="border-t-2 border-slate-100 pt-10 pb-40">
+            <h2 class="text-2xl font-black text-slate-200 uppercase italic tracking-tighter mb-8">Historial de Completados</h2>
+            <div id="contenedor-historial" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </footer>
     </div>
 
     <div id="modalTarea" class="modal">
-        <div class="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-w-lg">
-            <h2 id="modalTitulo" class="text-2xl font-p font-extrabold mb-6 text-slate-800">Gestionar Tarea</h2>
-            <input type="hidden" id="f-id">
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Tarea / Nombre</label>
-                    <input id="f-tarea" type="text" class="w-full border-2 border-slate-50 p-3 rounded-xl bg-slate-50 outline-none focus:border-indigo-400">
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Descripción Técnica</label>
-                    <textarea id="f-desc" rows="2" class="w-full border-2 border-slate-50 p-3 rounded-xl bg-slate-50 outline-none focus:border-indigo-400"></textarea>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Inicio</label>
-                    <input id="f-inicio" type="date" class="w-full border-2 border-slate-50 p-3 rounded-xl text-sm bg-slate-50">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Límite (Due)</label>
-                    <input id="f-due" type="date" class="w-full border-2 border-slate-50 p-3 rounded-xl text-sm bg-slate-50">
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Categoría</label>
-                    <select id="f-seccion" class="w-full border-2 border-slate-50 p-3 rounded-xl font-bold text-slate-600 bg-slate-50">
-                        <option value="A. Tareas Prioritarias">A. Tareas Prioritarias</option>
-                        <option value="B. Trabajos Normales">B. Trabajos Normales</option>
-                        <option value="C. Pendientes Comunidad">C. Pendientes Comunidad</option>
-                        <option value="D. Trabajos de Mantención">D. Trabajos de Mantención</option>
-                        <option value="E. Equipos No Operativos">E. Equipos No Operativos</option>
-                    </select>
-                </div>
-                <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Estado</label>
-                    <select id="f-status" class="w-full border-2 border-indigo-50 p-3 rounded-xl font-bold text-indigo-600 bg-indigo-50/50">
-                        <option value="NUEVA">NUEVA</option>
-                        <option value="EN PROCESO">EN PROCESO</option>
-                        <option value="PENDIENTE">PENDIENTE</option>
-                        <option value="ACTUALIZADO">ACTUALIZADO</option>
-                        <option value="LISTO">✅ FINALIZADA (Historial)</option>
-                    </select>
+        <div class="bg-white rounded-[3rem] w-full max-w-xl shadow-2xl overflow-hidden">
+            <div class="p-8 sm:p-12 max-h-[80vh] overflow-y-auto no-scrollbar">
+                <h2 id="modalTitulo" class="text-2xl font-black text-slate-900 mb-8 italic uppercase tracking-tighter text-center">Gestión</h2>
+                <input type="hidden" id="f-id">
+                <div class="space-y-6">
+                    <div><label class="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">Sección</label>
+                        <select id="f-seccion" class="input-field"><option value="A. Tareas Prioritarias">A. Tareas Prioritarias</option><option value="B. Trabajos Normales">B. Trabajos Normales</option><option value="C. Pendientes ComunidadFeliz">C. Pendientes ComunidadFeliz</option><option value="D. Mantención">D. Mantención</option><option value="E. Equipos No Operativos">E. Equipos No Operativos</option></select>
+                    </div>
+                    <div><label class="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">Tarea</label><input id="f-tarea" type="text" class="input-field uppercase"></div>
+                    <div><label class="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">Instrucciones</label><textarea id="f-desc" rows="3" class="input-field resize-none uppercase"></textarea></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">Estado</label><select id="f-status" class="input-field font-black text-indigo-600"><option value="NUEVA">NUEVA</option><option value="EN PROCESO">EN PROCESO</option><option value="PENDIENTE">PENDIENTE</option><option value="LISTO">FINALIZADA</option></select></div>
+                        <div><label class="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1 tracking-widest">Fecha Límite</label><input id="f-due" type="date" class="input-field"></div>
+                    </div>
                 </div>
             </div>
-
-            <div class="flex gap-3 mt-8">
-                <button onclick="cerrarModal()" class="flex-1 py-3 font-bold text-slate-400">Cancelar</button>
-                <button onclick="enviarDatos()" id="btnGuardar" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition">Guardar Cambios</button>
-            </div>
+            <div class="p-8 bg-slate-50 flex gap-4"><button onclick="cerrarModal()" class="flex-1 py-4 text-slate-400 font-bold uppercase text-xs tracking-widest">Cerrar</button><button onclick="guardar()" id="btnGuardar" class="flex-[2] bg-indigo-600 text-white py-4 rounded-3xl font-black shadow-lg uppercase text-xs tracking-widest">Sincronizar</button></div>
         </div>
     </div>
 
     <script>
-        // === CONFIGURACIÓN ===
-        const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbx3zUY7xLmykFIzWSTfHGI8DRasOxDYy_pehNBo-jh2SrA-RanrrN1bGOSKkaFm79Q3/exec'; 
-        const BASE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3oekURd6khMiA5uT5dJ-fYd7S56hAZMboNfrrqUu-VOGxjOEPGsuaSflihC6cwqcUh0Vte5wvdDJo/pub?output=csv&';
-        const GID_TAREAS = '353601574';
-        const GID_TORRES = '1484537224';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzA-CtGVff__hIhVkhLpbo2xZHRoVcFQfWS6gaCv2k/exec';
+        const SECCIONES = ["A. Tareas Prioritarias", "B. Trabajos Normales", "C. Pendientes ComunidadFeliz", "D. Mantención", "E. Equipos No Operativos"];
+        let backupTareas = [];
 
-        let datosTareas = [];
+        function fetchData() {
+            const old = document.getElementById('jsonp-loader'); if(old) old.remove();
+            const script = document.createElement('script');
+            script.id = 'jsonp-loader';
+            script.src = `${API_URL}?callback=renderAll&ts=${new Date().getTime()}&rnd=${Math.random()}`;
+            document.body.appendChild(script);
+        }
 
-        function init() {
-            Papa.parse(`${BASE_CSV}gid=${GID_TORRES}`, {
-                download: true, header: true,
-                complete: function(r) { renderTorres(r.data); }
-            });
+        function renderAll(data) {
+            const loader = document.getElementById('loader');
+            if(loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 500); }
+
+            if (!data || !data.tareas) return;
+            backupTareas = data.tareas;
             
-            Papa.parse(`${BASE_CSV}gid=${GID_TAREAS}`, {
-                download: true, header: true,
-                complete: function(r) { 
-                    datosTareas = r.data.filter(t => t.Tarea);
-                    renderTareas();
-                }
-            });
-            document.getElementById('current-date').innerText = `Actualizado: ${new Date().toLocaleTimeString('es-CL')}`;
-        }
+            const tFull = data.tareas.slice(1).filter(t => t[2] && t[2].toString().trim() !== "");
+            const tIndexed = data.tareas.map((t, i) => ({ data: t, index: i }));
 
-        function cambiarTab(tab) {
-            document.getElementById('tab-activas').style.display = tab === 'activas' ? 'block' : 'none';
-            document.getElementById('tab-historial').style.display = tab === 'historial' ? 'block' : 'none';
-            document.getElementById('btn-activas').className = tab === 'activas' ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
-            document.getElementById('btn-historial').className = tab === 'historial' ? 'tab-btn tab-active' : 'tab-btn tab-inactive';
-        }
+            const listas = tFull.filter(t => t[4]?.toString().trim().toUpperCase() === "LISTO").length;
+            const total = tFull.length;
+            const atrasadas = tFull.filter(t => t[4]?.toString().trim().toUpperCase() !== "LISTO" && parseInt(t[7]) < 0).length;
+            const pct = total === 0 ? 0 : Math.round((listas / total) * 100);
+            
+            document.getElementById('txt-porcentaje').innerText = pct + "%";
+            document.getElementById('anillo-progreso').style.strokeDashoffset = 219.9 - (pct/100 * 219.9);
+            document.getElementById('bar-atraso').style.width = (total === 0) ? "0%" : (atrasadas/total*100) + "%";
+            document.getElementById('bar-proceso').style.width = (total === 0) ? "0%" : ((total-listas-atrasadas)/total*100) + "%";
+            document.getElementById('bar-listo').style.width = (total === 0) ? "0%" : (listas/total*100) + "%";
+            document.getElementById('txt-atraso').innerText = "ATRASO: " + atrasadas;
+            document.getElementById('txt-proceso').innerText = "ACTIVAS: " + (total-listas);
+            document.getElementById('txt-listo').innerText = "LISTAS: " + listas;
 
-        function renderTorres(torres) {
-            const container = document.getElementById('grid-torres');
-            const temas = { 'ROJA': 'bg-red-500 text-white', 'AMARILLA': 'bg-yellow-400 text-slate-800', 'VERDE': 'bg-emerald-500 text-white' };
-            container.innerHTML = torres.map(t => {
-                const color = t.Nivel || t.Color || t.NIVEL || '';
-                return `
-                <div class="h-20 ${temas[color.toUpperCase()] || 'bg-slate-200'} tower-card flex flex-col items-center justify-center p-2 shadow-sm">
-                    <span class="font-extrabold text-xl">${t.Torre || t.TORRE}</span>
-                    <span class="text-[8px] font-bold uppercase opacity-80">${t.Estado || t.ESTADO || ''}</span>
-                </div>`;
-            }).join('');
-        }
+            const activasMonitor = tIndexed.slice(1).filter(i => i.data[2] && i.data[4]?.toString().trim().toUpperCase() !== "LISTO");
+            const conDias = activasMonitor.map(i => ({...i, dias: parseInt(i.data[7]) || 999}));
+            const renderMin = (arr, c) => arr.map(i => `<div onclick="abrirEditarPorIndice(${i.index})" class="flex justify-between items-center bg-white p-4 rounded-xl text-[11px] shadow-sm border border-slate-50 cursor-pointer hover:border-indigo-200 transition-all"><span class="font-bold text-slate-700 truncate pr-4 uppercase">${i.data[2]}</span><span class="${c} text-white px-2 py-1 rounded-lg font-black">${Math.abs(i.dias)} D</span></div>`).join('') || '<p class="text-xs text-slate-300 italic text-center py-2">Todo al día</p>';
+            document.getElementById('top-atrasadas').innerHTML = renderMin(conDias.filter(i => i.dias < 0).sort((a,b) => a.dias-b.dias).slice(0,5), 'bg-red-500');
+            document.getElementById('top-proximas').innerHTML = renderMin(conDias.filter(i => i.dias >= 0 && i.dias !== 999).sort((a,b) => a.dias-b.dias).slice(0,5), 'bg-indigo-500');
 
-        function renderTareas() {
-            const contActivas = document.getElementById('canvas-tareas');
-            const contHistorial = document.getElementById('canvas-historial');
-            contActivas.innerHTML = '';
-            contHistorial.innerHTML = '';
-
-            const activas = datosTareas.filter(t => t.Status !== 'LISTO');
-            const historial = datosTareas.filter(t => t.Status === 'LISTO');
-
-            // Render Activas por Sección
-            const secciones = [...new Set(activas.map(t => t.Seccion).filter(s => s))];
-            secciones.forEach(sec => {
-                const tareasSec = activas.filter(t => t.Seccion === sec);
-                let html = `<div><h3 class="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> ${sec}</h3><div class="space-y-3">`;
-                
-                tareasSec.forEach(t => {
-                    const dias = calcularDias(t.Due);
-                    const atrasada = dias < 0;
-                    
-                    let c = 'task-in-progress';
-                    if (atrasada) c = 'task-overdue border-l-red-500';
-                    else if (t.Status === 'NUEVA') c = 'task-new border-l-emerald-500';
-
-                    html += `
-                        <div class="task-card ${c} p-4 shadow-sm flex justify-between items-center group">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded">${t.ID || 'N/A'}</span>
-                                    <h3 class="font-bold text-slate-700 text-sm">${t.Tarea}</h3>
-                                </div>
-                                <p class="text-[11px] text-slate-500 line-clamp-1 mb-2">${t.Descripcion || 'Sin detalles'}</p>
-                                <div class="flex gap-4">
-                                    <span class="text-[9px] font-bold text-slate-400">Inicio: ${t.Inicio || '--'}</span>
-                                    <span class="text-[9px] font-bold ${atrasada ? 'text-red-500' : 'text-slate-400'}">Due: ${t.Due || '--'} ${atrasada ? '(!'+Math.abs(dias)+'d)' : ''}</span>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3 ml-4">
-                                <span class="hidden md:inline text-[9px] font-extrabold px-3 py-1 rounded-full uppercase bg-indigo-50 text-indigo-600">${t.Status}</span>
-                                <button onclick='abrirEditar(${JSON.stringify(t).replace(/'/g, "&#39;")})' class="p-2 text-slate-300 hover:text-indigo-600 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>
-                            </div>
-                        </div>`;
-                });
-                contActivas.innerHTML += html + `</div></div>`;
-            });
-
-            if(activas.length === 0) contActivas.innerHTML = '<p class="text-center text-slate-400 py-10">No hay tareas activas.</p>';
-
-            // Render Historial
-            if(historial.length === 0) {
-                contHistorial.innerHTML = '<p class="text-center text-slate-400 py-10">Aún no hay tareas finalizadas.</p>';
-            } else {
-                historial.forEach(t => {
-                    contHistorial.innerHTML += `
-                    <div class="task-card task-completed p-4 flex justify-between items-center bg-slate-50">
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[9px] font-black text-slate-400">${t.ID}</span>
-                                <h3 class="font-bold text-slate-600 line-through text-sm">${t.Tarea}</h3>
-                            </div>
-                            <p class="text-[10px] text-slate-400 mt-1">${t.Seccion}</p>
-                        </div>
-                        <button onclick='abrirEditar(${JSON.stringify(t).replace(/'/g, "&#39;")})' class="text-[10px] font-bold text-indigo-500 px-3 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 transition">Reabrir</button>
-                    </div>`;
-                });
+            if (data.torres) {
+                const cMap = { 'RED': 'bg-red-500', 'YELLOW': 'bg-amber-400', 'GREEN': 'bg-emerald-500', 'ROJO': 'bg-red-500', 'AMARILLO': 'bg-amber-400', 'VERDE': 'bg-emerald-500' };
+                document.getElementById('grid-torres').innerHTML = data.torres.slice(1).map(t => `<div class="${cMap[t[2]?.toString().toUpperCase().trim()] || 'bg-slate-200'} text-white p-4 rounded-3xl text-center shadow-sm"><p class="text-2xl font-black italic leading-none">${t[0]}</p><p class="text-[8px] font-black uppercase opacity-80 mt-1">${t[1]}</p></div>`).join('');
             }
+
+            const actCont = document.getElementById('contenedor-tareas');
+            const histCont = document.getElementById('contenedor-historial');
+            actCont.innerHTML = ''; histCont.innerHTML = '';
+
+            SECCIONES.forEach(sec => {
+                const filtradas = tIndexed.slice(1).filter(i => {
+                    const seccionFila = i.data[0]?.toString().trim();
+                    const estadoFila = i.data[4]?.toString().trim().toUpperCase();
+                    const tieneSeccion = seccionFila !== "";
+                    const coincideSecc = seccionFila.startsWith(sec.substring(0,2));
+                    const noListo = estadoFila !== "LISTO" && estadoFila !== "FINALIZADA";
+                    return tieneSeccion && coincideSecc && noListo && i.data[2];
+                });
+
+                if (!filtradas.length) return;
+                let html = `<div><h3 class="text-xs font-black text-indigo-500 uppercase tracking-widest mb-5 flex items-center gap-3"><span class="w-12 h-[2px] bg-indigo-500"></span> ${sec}</h3><div class="grid grid-cols-1 gap-4">`;
+                filtradas.forEach(i => {
+                    const t = i.data; const d = parseInt(t[7]); const c = isNaN(d) ? 'slate' : (d < 0 ? 'red' : (d === 0 ? 'orange' : 'emerald'));
+                    html += `<div class="task-card status-${t[4]?.toString().toLowerCase().replace(/\s+/g,'')} p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 shadow-sm border border-slate-50"><div class="flex-1 leading-snug"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-slate-300">ID ${t[1]}</span><h4 class="font-bold text-slate-800 text-[13px] uppercase tracking-tight">${t[2]}</h4></div><p class="text-[11px] text-slate-500 font-medium line-clamp-2">${t[3] || ''}</p></div><div class="flex items-center gap-4 w-full sm:w-auto justify-between border-t sm:border-0 pt-4 sm:pt-0"><div class="text-right flex flex-col justify-center"><p class="text-[8px] font-black text-slate-300 uppercase">${d<0?'ATRASO':'RESTAN'}</p><p class="text-[12px] font-black ${d<=0?'text-white bg-'+c+'-500':'text-emerald-700 bg-emerald-50'} px-3 py-1 rounded-xl mt-0.5">${isNaN(d)?'--':Math.abs(d)+' D'}</p></div><button onclick="abrirEditarPorIndice(${i.index})" class="bg-slate-50 hover:bg-indigo-600 p-3 rounded-2xl transition-all text-slate-400 hover:text-white shadow-sm active:scale-95"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-width="2.5"></path></svg></button></div></div>`;
+                });
+                actCont.innerHTML += html + `</div></div>`;
+            });
+
+            histCont.innerHTML = tIndexed.slice(1).filter(i => {
+                const estado = i.data[4]?.toString().trim().toUpperCase();
+                return (estado === "LISTO" || estado === "FINALIZADA") && i.data[2];
+            }).map(i => `<div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm opacity-60 border border-slate-50"><div class="truncate pr-4 leading-tight"><p class="text-[8px] font-black text-slate-300 uppercase truncate">${i.data[1]} | ${i.data[0] || 'SIN SECCIÓN'}</p><h5 class="text-[11px] font-bold text-slate-600 uppercase truncate">${i.data[2]}</h5></div><button onclick="abrirEditarPorIndice(${i.index})" class="text-indigo-500 font-black text-[10px] hover:underline">REABRIR</button></div>`).join('') || '<p class="text-xs text-slate-300 py-4 font-bold uppercase w-full text-center">Sin historial</p>';
+            
+            document.getElementById('sync-status').innerText = "SINCRONIZADO: " + new Date().toLocaleTimeString();
         }
 
-        function enviarDatos() {
+        function guardar() {
             const btn = document.getElementById('btnGuardar');
-            btn.innerText = "Guardando..."; btn.disabled = true;
+            const tNom = document.getElementById('f-tarea').value.toUpperCase();
+            const tDesc = document.getElementById('f-desc').value.toUpperCase();
+            
+            if (!tNom) return showToast("Falta nombre");
+            btn.innerText = "Sincronizando..."; btn.disabled = true;
+            
+            const p = `id=${encodeURIComponent(document.getElementById('f-id').value)}&seccion=${encodeURIComponent(document.getElementById('f-seccion').value)}&tarea=${encodeURIComponent(tNom)}&desc=${encodeURIComponent(tDesc)}&status=${encodeURIComponent(document.getElementById('f-status').value)}&due=${encodeURIComponent(document.getElementById('f-due').value)}`;
+            const script = document.createElement('script');
+            script.src = `${API_URL}?callback=confirmarGuardado&${p}&ts=${new Date().getTime()}&rnd=${Math.random()}`;
+            document.body.appendChild(script);
+        }
 
-            const d = {
-                id: document.getElementById('f-id').value,
-                seccion: document.getElementById('f-seccion').value,
-                tarea: document.getElementById('f-tarea').value,
-                descripcion: document.getElementById('f-desc').value,
-                inicio: document.getElementById('f-inicio').value,
-                due: document.getElementById('f-due').value,
-                status: document.getElementById('f-status').value
-            };
+        function confirmarGuardado(res) {
+            const btn = document.getElementById('btnGuardar');
+            btn.innerText = "Sincronizar"; btn.disabled = false;
+            if (res.success) { cerrarModal(); showToast("Éxito"); fetchData(); } 
+            else { showToast("Error: " + res.error); }
+        }
 
-            // Envío silencioso para atravesar CORS en GitHub
-            fetch(URL_APPS_SCRIPT, { 
-                method: 'POST', 
-                mode: 'no-cors', 
-                body: JSON.stringify(d) 
-            })
-            .then(() => { 
-                cerrarModal();
-                alert("✅ Guardado correctamente. Google tardará ~2 minutos en reflejar el cambio en la web."); 
-                location.reload(); 
-            })
-            .catch(err => {
-                alert("Error de conexión");
-                btn.innerText = "Guardar Cambios"; btn.disabled = false;
-            });
+        function abrirEditarPorIndice(idx) {
+            const t = backupTareas[idx]; if (!t) return;
+            document.getElementById('f-id').value = t[1];
+            const secExcel = t[0]?.toString().trim();
+            document.getElementById('f-seccion').value = (secExcel === "") ? (SECCIONES.find(s => s.startsWith(t[1].substring(0,1))) || SECCIONES[1]) : secExcel;
+            document.getElementById('f-tarea').value = t[2] || '';
+            document.getElementById('f-desc').value = t[3] || '';
+            const st = t[4]?.toString().trim().toUpperCase();
+            document.getElementById('f-status').value = (st === "LISTO" || st === "FINALIZADA") ? "LISTO" : st;
+            let dueV = ""; if (t[6]) { try { const d = new Date(t[6]); dueV = d.toISOString().split('T')[0]; } catch(e) {} }
+            document.getElementById('f-due').value = dueV;
+            abrirModal();
         }
 
         function copiarReporte() {
-            let texto = `📋 *REPORTE CUMBRES - ${new Date().toLocaleDateString()}*\n\n`;
-            datosTareas.filter(t => t.Status !== "LISTO").forEach(t => {
-                const dias = calcularDias(t.Due);
-                texto += `🔹 *[${t.ID}] ${t.Tarea}*\n   Status: ${t.Status} | Due: ${t.Due || '--'} ${dias < 0 ? '(!'+Math.abs(dias)+'d)' : ''}\n   _${t.Descripcion}_\n\n`;
+            if (!backupTareas || backupTareas.length === 0) {
+                showToast("No hay datos para copiar");
+                return;
+            }
+
+            const raw = backupTareas.slice(1).filter(t => {
+                const est = t[4] ? t[4].toString().trim().toUpperCase() : "";
+                return t[2] && est !== "LISTO" && est !== "FINALIZADA";
             });
-            navigator.clipboard.writeText(texto).then(() => alert("Reporte copiado para WhatsApp"));
+            
+            let txt = "📋 *REPORTE CUMBRES PRO*\n\n";
+            
+            SECCIONES.forEach(sec => {
+                const f = raw.filter(t => t[0] && t[0].toString().trim().startsWith(sec.substring(0,2)));
+                if (f.length > 0) { 
+                    txt += `📌 *${sec.toUpperCase()}*\n`; 
+                    f.forEach(t => { 
+                        const id = t[1] ? t[1].toString().trim() : "SIN ID";
+                        const nombre = t[2] ? t[2].toString().trim().toUpperCase() : "";
+                        const desc = t[3] ? t[3].toString().trim().toUpperCase() : "";
+                        
+                        let diasStr = "[SIN FECHA]";
+                        const dias = parseInt(t[7]);
+                        if (!isNaN(dias)) {
+                            diasStr = dias < 0 ? `[ATRASO: ${Math.abs(dias)} DÍAS]` : `[RESTAN: ${dias} DÍAS]`;
+                        }
+                        
+                        txt += `[${id}] ${diasStr}\n`;
+                        txt += `${nombre}\n`;
+                        if (desc !== "") txt += `${desc}\n`;
+                        txt += `NOVEDADES: \n\n`;
+                    }); 
+                }
+            });
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(txt.trim())
+                    .then(() => showToast("Copiado al portapapeles"))
+                    .catch(() => fallbackCopiar(txt.trim()));
+            } else {
+                fallbackCopiar(txt.trim());
+            }
         }
 
-        function formatearParaInput(f) {
-            if(!f) return '';
-            if(f.includes('/')) { const p = f.split('/'); return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; }
-            if(f.includes('-')) { const p = f.split('-'); return `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`; }
-            return f;
+        function fallbackCopiar(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast("Copiado al portapapeles");
+            } catch (err) {
+                showToast("Error al copiar");
+            }
+            document.body.removeChild(textArea);
         }
 
-        function abrirNueva() { 
-            document.getElementById('modalTitulo').innerText = "Nueva Tarea";
-            document.getElementById('f-id').value = "";
-            document.getElementById('f-tarea').value = "";
-            document.getElementById('f-desc').value = "";
-            document.getElementById('f-inicio').value = new Date().toISOString().split('T')[0];
-            document.getElementById('f-due').value = "";
-            document.getElementById('f-status').value = "NUEVA";
-            document.getElementById('modalTarea').style.display = 'flex'; 
-        }
+        function abrirNueva() { document.getElementById('f-id').value = ""; document.getElementById('f-tarea').value = ""; document.getElementById('f-desc').value = ""; document.getElementById('f-due').value = ""; document.getElementById('f-status').value = "NUEVA"; abrirModal(); }
+        function abrirModal() { document.body.classList.add('modal-open'); document.getElementById('modalTarea').style.display = 'flex'; }
+        function cerrarModal() { document.body.classList.remove('modal-open'); document.getElementById('modalTarea').style.display = 'none'; }
+        function showToast(m) { const t = document.getElementById("toast"); t.innerText = m; t.className = "show"; setTimeout(() => t.className = t.className.replace("show", ""), 3000); }
 
-        function abrirEditar(t) {
-            document.getElementById('modalTitulo').innerText = "Editar " + t.ID;
-            document.getElementById('f-id').value = t.ID;
-            document.getElementById('f-seccion').value = t.Seccion;
-            document.getElementById('f-tarea').value = t.Tarea;
-            document.getElementById('f-desc').value = t.Descripcion;
-            document.getElementById('f-inicio').value = formatearParaInput(t.Inicio);
-            document.getElementById('f-due').value = formatearParaInput(t.Due);
-            document.getElementById('f-status').value = t.Status;
-            document.getElementById('modalTarea').style.display = 'flex';
-        }
-
-        function cerrarModal() { document.getElementById('modalTarea').style.display = 'none'; }
-        
-        function calcularDias(f) { 
-            if(!f) return 0; 
-            const p = f.includes('/') ? f.split('/') : f.split('-');
-            const d = f.includes('/') ? new Date(p[2], p[1]-1, p[0]) : new Date(p[0], p[1]-1, p[2]);
-            return Math.ceil((d - new Date().setHours(0,0,0,0)) / 86400000);
-        }
-
-        window.onload = init;
+        window.onload = fetchData;
     </script>
 </body>
 </html>
